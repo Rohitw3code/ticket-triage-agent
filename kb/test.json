@@ -1,0 +1,24 @@
+{
+    "summary": "Checkout keeps failing with error 500 on mobile",
+    "category": "Bug",
+    "severity": "High",
+    "issue_type": "known_issue",
+    "related_issues": [
+        {
+            "id": "ISSUE-101",
+            "title": "Checkout error 500 on mobile",
+            "similarity_score": 0.806879500387128
+        },
+        {
+            "id": "ISSUE-105",
+            "title": "App crashes on iOS 17",
+            "similarity_score": 0.4201744285007949
+        },
+        {
+            "id": "ISSUE-102",
+            "title": "Login fails with incorrect password error",
+            "similarity_score": 0.38159865550544375
+        }
+    ],
+    "next_action": "Investigate the error and provide updates on the resolution."
+}

@@ -1,0 +1,107 @@
+[
+  {
+    "id": "ISSUE-101",
+    "title": "Checkout error 500 on mobile",
+    "category": "Bug",
+    "symptoms": ["500 error", "mobile", "checkout", "payment"],
+    "recommended_action": "Escalate to payments team; link incident INC-2023-09-10"
+  },
+  {
+    "id": "ISSUE-102",
+    "title": "Login fails with incorrect password error",
+    "category": "Login",
+    "symptoms": ["login", "password", "incorrect", "authentication"],
+    "recommended_action": "Send password reset link and check account status"
+  },
+  {
+    "id": "ISSUE-103",
+    "title": "Slow page load times on dashboard",
+    "category": "Performance",
+    "symptoms": ["slow", "dashboard", "loading", "performance"],
+    "recommended_action": "Check server metrics and CDN status"
+  },
+  {
+    "id": "ISSUE-104",
+    "title": "Unable to update billing information",
+    "category": "Billing",
+    "symptoms": ["billing", "payment", "credit card", "update"],
+    "recommended_action": "Verify payment gateway connection and user permissions"
+  },
+  {
+    "id": "ISSUE-105",
+    "title": "App crashes on iOS 17",
+    "category": "Bug",
+    "symptoms": ["crash", "ios", "mobile", "app"],
+    "recommended_action": "Escalate to mobile team; known iOS 17 compatibility issue"
+  },
+  {
+    "id": "ISSUE-106",
+    "title": "How to export data to CSV",
+    "category": "Question/How-To",
+    "symptoms": ["export", "csv", "data", "download"],
+    "recommended_action": "Attach KB article KB-234: Data Export Guide"
+  },
+  {
+    "id": "ISSUE-107",
+    "title": "Two-factor authentication setup problems",
+    "category": "Login",
+    "symptoms": ["2fa", "two-factor", "authentication", "setup"],
+    "recommended_action": "Send 2FA setup guide and verify phone number"
+  },
+  {
+    "id": "ISSUE-108",
+    "title": "Invoice not received after payment",
+    "category": "Billing",
+    "symptoms": ["invoice", "receipt", "payment", "missing"],
+    "recommended_action": "Resend invoice from billing system and verify email address"
+  },
+  {
+    "id": "ISSUE-109",
+    "title": "Search results returning irrelevant items",
+    "category": "Bug",
+    "symptoms": ["search", "results", "irrelevant", "wrong"],
+    "recommended_action": "Escalate to search team; possible indexing issue"
+  },
+  {
+    "id": "ISSUE-110",
+    "title": "Cannot upload files larger than 10MB",
+    "category": "Bug",
+    "symptoms": ["upload", "file", "size", "limit", "10mb"],
+    "recommended_action": "Check file size limits and ask for file compression"
+  },
+  {
+    "id": "ISSUE-111",
+    "title": "Email notifications not being received",
+    "category": "Bug",
+    "symptoms": ["email", "notification", "not received", "missing"],
+    "recommended_action": "Check spam folder and verify email preferences"
+  },
+  {
+    "id": "ISSUE-112",
+    "title": "How to integrate with third-party API",
+    "category": "Question/How-To",
+    "symptoms": ["api", "integration", "third-party", "connect"],
+    "recommended_action": "Attach KB article KB-567: API Integration Guide"
+  },
+  {
+    "id": "ISSUE-113",
+    "title": "Subscription renewal failed",
+    "category": "Billing",
+    "symptoms": ["subscription", "renewal", "failed", "expired"],
+    "recommended_action": "Check payment method and retry billing"
+  },
+  {
+    "id": "ISSUE-114",
+    "title": "Database timeout errors during peak hours",
+    "category": "Performance",
+    "symptoms": ["timeout", "database", "peak", "slow"],
+    "recommended_action": "Escalate to backend team; monitor database load"
+  },
+  {
+    "id": "ISSUE-115",
+    "title": "Password reset link expired",
+    "category": "Login",
+    "symptoms": ["password", "reset", "expired", "link"],
+    "recommended_action": "Generate new password reset link"
+  }
+]
