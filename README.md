@@ -11,6 +11,12 @@ An AI-powered support ticket classification and routing system built with LangGr
 - 🎨 **Modern UI**: Clean, responsive interface with two-column layout
 - 🔄 **Stateful Workflows**: Resume interrupted workflows with additional context
 
+## 📸 Screenshot
+
+![Ticket Triage Agent in Action](https://raw.githubusercontent.com/Rohitw3code/ticket-triage-agent/refs/heads/main/ss.png)
+
+*Example run showing the two-column interface with knowledge base on the left and real-time streaming triage results on the right.*
+
 ## 🏗️ Architecture
 
 ### Agent Design
