@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 import logging
 
 from app.config import get_settings
@@ -11,6 +12,14 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 app = FastAPI(title="Ticket Triage Agent")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 agent = TriageAgent()
 
