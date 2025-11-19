@@ -13,15 +13,20 @@ An AI-powered support ticket classification and routing system built with LangGr
 
 ## 📸 Screenshots
 
-### Main Interface
-![Ticket Triage Agent - Main Interface](https://raw.githubusercontent.com/Rohitw3code/ticket-triage-agent/refs/heads/main/ss.png)
+<table>
+<tr>
+<td width="50%">
 
-*Two-column interface with query input and knowledge base on the left, real-time streaming triage results on the right.*
+![](https://raw.githubusercontent.com/Rohitw3code/ticket-triage-agent/refs/heads/main/ss.png)
 
-### Interrupt Flow
-![Ticket Triage Agent - Human in the Loop](https://raw.githubusercontent.com/Rohitw3code/ticket-triage-agent/refs/heads/main/sss2.png)
+</td>
+<td width="50%">
 
-*Agent interrupts to ask for clarification when the query is too vague, then resumes classification after receiving additional details.*
+![](https://raw.githubusercontent.com/Rohitw3code/ticket-triage-agent/refs/heads/main/sss2.png)
+
+</td>
+</tr>
+</table>
 
 ## 🏗️ Architecture
 
