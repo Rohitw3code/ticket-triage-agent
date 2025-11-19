@@ -232,9 +232,71 @@
   border-left-color: #6366f1;
 }
 
+.interrupt-card {
+  border-left-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.interrupt-message {
+  margin-top: 0.5rem;
+}
+
+.interrupt-message strong {
+  color: #92400e;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.interrupt-message p {
+  color: #78350f;
+  font-size: 1rem;
+  line-height: 1.6;
+  margin: 0;
+  padding: 0.75rem;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #fcd34d;
+}
+
 .error-card {
   border-left-color: #ef4444;
   background: #fef2f2;
+}
+
+/* Interrupt Form */
+.interrupt-form {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 2px solid #f59e0b;
+}
+
+.interrupt-header {
+  display: flex;
+  align-items: start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  border-left: 4px solid #f59e0b;
+}
+
+.interrupt-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.interrupt-header h3 {
+  margin: 0 0 0.5rem 0;
+  color: #92400e;
+  font-size: 1.25rem;
+}
+
+.interrupt-question {
+  margin: 0;
+  color: #78350f;
+  font-size: 1rem;
+  line-height: 1.5;
+  font-weight: 500;
 }
 
 /* Classification Grid */

@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import logging
 
 from app.config import get_settings
@@ -22,6 +23,11 @@ app.add_middleware(
 )
 
 agent = TriageAgent()
+
+
+class ResumeRequest(BaseModel):
+    thread_id: str
+    additional_details: str
 
 
 @app.get("/")
@@ -55,6 +61,27 @@ async def triage_ticket_stream(request: TriageRequest):
     
     except Exception as e:
         logger.error(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/triage/resume")
+async def resume_ticket_triage(request: ResumeRequest):
+    if not request.thread_id:
+        raise HTTPException(status_code=400, detail="thread_id is required")
+    
+    if not request.additional_details.strip():
+        raise HTTPException(status_code=400, detail="additional_details cannot be empty")
+    
+    try:
+        logger.info(f"Resuming workflow for thread: {request.thread_id}")
+        
+        return StreamingResponse(
+            agent.resume_with_details(request.thread_id, request.additional_details),
+            media_type="application/x-ndjson"
+        )
+    
+    except Exception as e:
+        logger.error(f"Error resuming workflow: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

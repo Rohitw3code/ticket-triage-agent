@@ -9,12 +9,18 @@ interface StreamEvent {
   content?: string
   tool?: string
   args?: any
+  thread_id?: string
+  question?: string
 }
 
 function App() {
   const [query, setQuery] = useState('')
   const [streamEvents, setStreamEvents] = useState<StreamEvent[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isInterrupted, setIsInterrupted] = useState(false)
+  const [interruptQuestion, setInterruptQuestion] = useState('')
+  const [threadId, setThreadId] = useState('')
+  const [additionalDetails, setAdditionalDetails] = useState('')
   const streamEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -28,6 +34,10 @@ function App() {
 
     setStreamEvents([])
     setIsLoading(true)
+    setIsInterrupted(false)
+    setThreadId('')
+    setInterruptQuestion('')
+    setAdditionalDetails('')
 
     try {
       const response = await fetch('http://localhost:8000/triage/stream', {
@@ -61,6 +71,18 @@ function App() {
           try {
             const event = JSON.parse(line) as StreamEvent
             setStreamEvents(prev => [...prev, event])
+            
+            // Handle interrupt event
+            if (event.type === 'interrupt') {
+              setIsInterrupted(true)
+              setInterruptQuestion(event.question || '')
+              setThreadId(event.thread_id || '')
+            }
+            
+            // Store thread_id from status events
+            if (event.type === 'status' && event.thread_id) {
+              setThreadId(event.thread_id)
+            }
           } catch (e) {
             console.error('Failed to parse event:', line)
           }
@@ -74,9 +96,71 @@ function App() {
     }
   }
 
+  const handleResume = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!additionalDetails.trim() || !threadId) return
+
+    setIsLoading(true)
+    setIsInterrupted(false)
+
+    try {
+      const response = await fetch('http://localhost:8000/triage/resume', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          thread_id: threadId,
+          additional_details: additionalDetails 
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+
+      if (!reader) {
+        throw new Error('No reader available')
+      }
+
+      while (true) {
+        const { done, value } = await reader.read()
+        
+        if (done) break
+
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split('\n').filter(line => line.trim())
+        
+        lines.forEach(line => {
+          try {
+            const event = JSON.parse(line) as StreamEvent
+            setStreamEvents(prev => [...prev, event])
+          } catch (e) {
+            console.error('Failed to parse event:', line)
+          }
+        })
+      }
+      
+      setAdditionalDetails('')
+    } catch (error) {
+      console.error('Error:', error)
+      setStreamEvents(prev => [...prev, { type: 'error', message: String(error) }])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const clearStream = () => {
     setStreamEvents([])
     setQuery('')
+    setIsInterrupted(false)
+    setThreadId('')
+    setInterruptQuestion('')
+    setAdditionalDetails('')
   }
 
   const renderEvent = (event: StreamEvent, index: number) => {
@@ -191,6 +275,20 @@ function App() {
           </div>
         )
 
+      case 'interrupt':
+        return (
+          <div key={index} className="event-card interrupt-card">
+            <div className="event-icon">⏸️</div>
+            <div className="event-content">
+              <div className="event-type">Agent Interrupted</div>
+              <div className="interrupt-message">
+                <strong>Question from Agent:</strong>
+                <p>{event.question}</p>
+              </div>
+            </div>
+          </div>
+        )
+
       case 'error':
         return (
           <div key={index} className="event-card error-card">
@@ -223,23 +321,51 @@ function App() {
           <p className="subtitle">AI-powered ticket classification and routing</p>
         </header>
         
-        <form onSubmit={handleSubmit} className="query-form">
-          <textarea
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Describe your issue here... (e.g., 'Getting error 500 on mobile checkout')"
-            rows={4}
-            disabled={isLoading}
-          />
-          <div className="button-group">
-            <button type="submit" className="btn-primary" disabled={isLoading || !query.trim()}>
-              {isLoading ? '⏳ Processing...' : '🚀 Submit Query'}
-            </button>
-            <button type="button" className="btn-secondary" onClick={clearStream} disabled={isLoading}>
-              🗑️ Clear
-            </button>
-          </div>
-        </form>
+        {!isInterrupted ? (
+          <form onSubmit={handleSubmit} className="query-form">
+            <textarea
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Describe your issue here... (e.g., 'Getting error 500 on mobile checkout')"
+              rows={4}
+              disabled={isLoading}
+            />
+            <div className="button-group">
+              <button type="submit" className="btn-primary" disabled={isLoading || !query.trim()}>
+                {isLoading ? '⏳ Processing...' : '🚀 Submit Query'}
+              </button>
+              <button type="button" className="btn-secondary" onClick={clearStream} disabled={isLoading}>
+                🗑️ Clear
+              </button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={handleResume} className="query-form interrupt-form">
+            <div className="interrupt-header">
+              <span className="interrupt-icon">⏸️</span>
+              <div>
+                <h3>Agent Needs More Information</h3>
+                <p className="interrupt-question">{interruptQuestion}</p>
+              </div>
+            </div>
+            <textarea
+              value={additionalDetails}
+              onChange={(e) => setAdditionalDetails(e.target.value)}
+              placeholder="Provide additional details here..."
+              rows={4}
+              disabled={isLoading}
+              autoFocus
+            />
+            <div className="button-group">
+              <button type="submit" className="btn-primary" disabled={isLoading || !additionalDetails.trim()}>
+                {isLoading ? '⏳ Resuming...' : '▶️ Resume with Details'}
+              </button>
+              <button type="button" className="btn-secondary" onClick={clearStream} disabled={isLoading}>
+                🗑️ Cancel
+              </button>
+            </div>
+          </form>
+        )}
 
         {streamEvents.length > 0 && (
           <div className="results-container">
