@@ -2,11 +2,9 @@ from typing import TypedDict, Annotated
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import SystemMessage
 from agent.tools import search_knowledge_base, classify_ticket
-from agent.prompts import get_triage_prompt
 from app.config import get_settings
-import json
 
 
 class AgentState(TypedDict):
