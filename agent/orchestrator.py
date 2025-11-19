@@ -42,28 +42,20 @@ class TriageAgent:
         ])
         
         system_prompt = f"""You are a support ticket triage assistant. Analyze tickets and classify them.
+        Available categories: Billing, Login, Performance, Bug, Question/How-To
+        Available severities: Low, Medium, High, Critical
 
-Available categories: Billing, Login, Performance, Bug, Question/How-To
-Available severities: Low, Medium, High, Critical
+        Known issues from knowledge base:
+        {kb_context if kb_context else "No matching known issues found"}
 
-Known issues from knowledge base:
-{kb_context if kb_context else "No matching known issues found"}
+        Your task:
+        1. Generate a concise 1-2 line summary of the user's issue based on their description and similar issues from the knowledge base
+        2. Classify the category
+        3. Determine severity
+        4. Decide if this is a known_issue or new_issue (based on KB matches with score > 0.5)
+        5. Suggest next action
 
-Your task:
-1. Provide a 1-2 line summary
-2. Classify the category
-3. Determine severity
-4. Decide if this is a known_issue or new_issue (based on KB matches with score > 0.5)
-5. Suggest next action
-
-Response format:
-{{
-    "summary": "brief summary",
-    "category": "category name",
-    "severity": "severity level",
-    "issue_type": "known_issue or new_issue",
-    "next_action": "what to do next"
-}}"""
+        The summary must be AI-generated, insightful, and synthesize information from both the user query and related issues."""
         
         return [
             {"role": "system", "content": system_prompt},
@@ -83,7 +75,7 @@ Response format:
                         "properties": {
                             "summary": {
                                 "type": "string",
-                                "description": "1-2 line summary of the issue"
+                                "description": "AI-generated 1-2 line summary synthesizing the user's issue with context from related knowledge base entries"
                             },
                             "category": {
                                 "type": "string",
