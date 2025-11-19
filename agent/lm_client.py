@@ -12,14 +12,18 @@ class LLMClient:
         self.model = settings.OPENAI_MODEL
     
     async def get_completion(self, messages, tools=None):
-        """Get completion from OpenAI"""
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                tools=tools,
-                temperature=0.3
-            )
+            params = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": 0.3
+            }
+            
+            if tools:
+                params["tools"] = tools
+                params["tool_choice"] = {"type": "function", "function": {"name": "classify_ticket"}}
+            
+            response = self.client.chat.completions.create(**params)
             return response
         
         except Exception as e:
