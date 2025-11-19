@@ -17,13 +17,77 @@ class TriageAgent:
         self.kb = KnowledgeBase()
         self.kb_entries = self.kb.load_kb()
     
-    async def triage(self, description: str) -> TriageResponse:
-        kb_results = self.kb.search(description, top_k=3)
-        messages = self._build_messages(description, kb_results)
-        tools = self._get_tools()
-        response = await self.llm.get_completion(messages, tools)
-        result = self._parse_response(response, kb_results)
-        return result
+    async def triage_stream(self, description: str):
+        from agent.graph import graph
+        from langchain_core.messages import HumanMessage
+        
+        yield json.dumps({"type": "status", "message": "Starting triage with LangGraph"}) + "\n"
+        
+        initial_state = {
+            "messages": [HumanMessage(content=description)],
+            "kb_results": "",
+            "classification": {}
+        }
+        
+        try:
+            async for event in graph.astream(initial_state, stream_mode="updates"):
+                for node_name, node_output in event.items():
+                    yield json.dumps({
+                        "type": "node_start",
+                        "node": node_name,
+                        "message": f"Executing node: {node_name}"
+                    }) + "\n"
+                    
+                    if node_name == "search_kb" and "kb_results" in node_output:
+                        yield json.dumps({
+                            "type": "kb_search_complete",
+                            "data": node_output["kb_results"]
+                        }) + "\n"
+                    
+                    if node_name == "classify" and "classification" in node_output:
+                        yield json.dumps({
+                            "type": "classification_complete",
+                            "data": node_output["classification"]
+                        }) + "\n"
+                    
+                    if "messages" in node_output:
+                        for msg in node_output["messages"]:
+                            if hasattr(msg, 'content') and msg.content:
+                                yield json.dumps({
+                                    "type": "message",
+                                    "content": msg.content
+                                }) + "\n"
+                            
+                            if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                                for tool_call in msg.tool_calls:
+                                    yield json.dumps({
+                                        "type": "tool_call",
+                                        "tool": tool_call.get("name", "unknown"),
+                                        "args": tool_call.get("args", {})
+                                    }) + "\n"
+                    
+                    yield json.dumps({
+                        "type": "node_complete",
+                        "node": node_name
+                    }) + "\n"
+            
+            yield json.dumps({"type": "status", "message": "Triage complete"}) + "\n"
+            
+        except Exception as e:
+            yield json.dumps({"type": "error", "message": str(e)}) + "\n"
+    
+    def _search_kb_with_stream(self, description: str):
+        events = []
+        
+        def callback(event):
+            events.append(event)
+        
+        kb_results = self.kb.search(description, top_k=3, stream_callback=callback)
+        
+        for event in events:
+            yield event
+        
+        yield {"type": "results", "results": kb_results}
     
     def _build_messages(self, description: str, kb_results: List[Dict]) -> List[Dict]:
         kb_context = get_kb_context(kb_results)

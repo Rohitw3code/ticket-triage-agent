@@ -23,16 +23,37 @@ class KnowledgeBase:
             logger.error(f"Error loading KB: {e}")
             return []
     
-    def search(self, query: str, top_k: int = 3) -> List[Dict]:
+    def search(self, query: str, top_k: int = 3, stream_callback=None):
         kb_entries = self.load_kb()
+        
+        if stream_callback:
+            stream_callback({"type": "embedding_start", "text": "query", "length": len(query)})
         
         query_embedding = self._get_embedding(query)
         
+        if stream_callback:
+            stream_callback({"type": "embedding_complete", "text": "query"})
+        
         results = []
         
-        for entry in kb_entries:
+        for idx, entry in enumerate(kb_entries):
             entry_text = self._build_entry_text(entry)
+            
+            if stream_callback:
+                stream_callback({
+                    "type": "embedding_start",
+                    "text": f"KB entry {entry['id']}",
+                    "index": idx
+                })
+            
             entry_embedding = self._get_embedding(entry_text)
+            
+            if stream_callback:
+                stream_callback({
+                    "type": "embedding_complete",
+                    "text": f"KB entry {entry['id']}",
+                    "index": idx
+                })
             
             score = self._cosine_similarity(query_embedding, entry_embedding)
             

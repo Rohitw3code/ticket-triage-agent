@@ -1,9 +1,10 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 import logging
 
 from app.config import get_settings
 from agent.orchestrator import TriageAgent
-from agent.models import TriageRequest, TriageResponse
+from agent.models import TriageRequest
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -11,7 +12,6 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 app = FastAPI(title="Ticket Triage Agent")
 
-# Initialize agent once
 agent = TriageAgent()
 
 
@@ -28,9 +28,8 @@ def health():
     return {"status": "healthy"}
 
 
-@app.post("/triage", response_model=TriageResponse)
-async def triage_ticket(request: TriageRequest):
-    # Validate input
+@app.post("/triage/stream")
+async def triage_ticket_stream(request: TriageRequest):
     if not request.description.strip():
         raise HTTPException(status_code=400, detail="Description cannot be empty")
     
@@ -38,10 +37,12 @@ async def triage_ticket(request: TriageRequest):
         raise HTTPException(status_code=400, detail="Description too long")
     
     try:
-        logger.info(f"Processing ticket: {request.description[:50]}...")
-        response = await agent.triage(request.description)
-        logger.info(f"Triage complete: {response.category} - {response.severity}")
-        return response
+        logger.info(f"Processing ticket stream: {request.description[:50]}...")
+        
+        return StreamingResponse(
+            agent.triage_stream(request.description),
+            media_type="application/x-ndjson"
+        )
     
     except Exception as e:
         logger.error(f"Error: {e}")
