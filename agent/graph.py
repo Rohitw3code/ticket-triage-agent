@@ -5,7 +5,11 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from agent.tools import search_knowledge_base, classify_ticket
+from agent.utils import retry_with_backoff, handle_llm_error, LLMError
 from app.config import get_settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class AgentState(TypedDict):
@@ -32,6 +36,12 @@ def search_kb_node(state: AgentState):
     }
 
 
+@retry_with_backoff()
+def call_llm_with_retry(llm, messages):
+    """Wrapper function for LLM calls with retry logic."""
+    return llm.invoke(messages)
+
+
 def analyze_node(state: AgentState):
     """Analyze if we need more information from the user."""
     kb_results = state.get("kb_results", "")
@@ -43,46 +53,76 @@ def analyze_node(state: AgentState):
     if additional_details:
         full_context += f"\n\nAdditional details provided by user:\n{additional_details}"
     
-    llm = ChatOpenAI(
-        model=settings.OPENAI_MODEL,
-        api_key=settings.OPENAI_API_KEY,
-        temperature=0.3
-    )
-    
-    # First, check if we need more information
-    analysis_prompt = f"""Analyze this support ticket and determine if you need more information to properly triage it.
+    try:
+        llm = ChatOpenAI(
+            model=settings.OPENAI_MODEL,
+            api_key=settings.OPENAI_API_KEY,
+            temperature=settings.OPENAI_TEMPERATURE,
+            timeout=settings.OPENAI_TIMEOUT,
+            max_retries=0  # We handle retries ourselves
+        )
+        
+        # First, check if we need more information
+        analysis_prompt = f"""Analyze this support ticket and determine if you have enough information to match it with the knowledge base results.
 
 Ticket: {full_context}
 
 {kb_results}
 
-If the ticket is vague, missing critical details (like error messages, affected features, device info, steps to reproduce), 
-or you cannot confidently classify it, respond with:
-NEED_MORE_INFO: <specific question to ask the user>
+Your task:
+1. Look at the knowledge base results above
+2. Determine if you can confidently match the ticket to one of the known issues OR classify it as a new issue
+3. Only ask for more information if:
+   - The ticket is extremely vague (e.g., "something is broken", "not working")
+   - You cannot determine which category it belongs to
+   - The description is so unclear that you're unsure if it matches any KB entry or not
 
-Otherwise, respond with:
+If you have enough information to proceed (even if no KB match is found), respond with:
 PROCEED
 
+If you genuinely need more information to determine relevance to KB or categorize, respond with:
+NEED_MORE_INFO: <specific question to ask the user>
+
 Examples:
-- "App is slow" -> NEED_MORE_INFO: Can you provide more details? Which specific feature is slow? What device/browser are you using? When did this start?
-- "Getting error 500 on checkout" -> PROCEED (specific enough)
-- "Something is broken" -> NEED_MORE_INFO: What exactly is broken? Can you describe the issue and what you were trying to do?
-"""
+- "App is slow" -> PROCEED (can classify as Performance, even without exact KB match)
+- "Getting error 500 on checkout" -> PROCEED (specific enough, clear category)
+- "Login not working" -> PROCEED (clear category, can match or escalate)
+- "Something is broken" -> NEED_MORE_INFO: What exactly isn't working? Can you describe which feature or page you're having trouble with?
+- "Issue" -> NEED_MORE_INFO: Can you please describe the issue you're experiencing? What were you trying to do when the problem occurred?
+- "Help" -> NEED_MORE_INFO: What do you need help with? Please describe your question or issue.
+- "Mobile error" -> PROCEED (vague but has context - mobile + error, can classify)
+
+Only interrupt if the ticket provides NO actionable information."""
+        
+        analysis_response = call_llm_with_retry(llm, [SystemMessage(content=analysis_prompt)])
+        content = analysis_response.content.strip()
+        
+        if content.startswith("NEED_MORE_INFO:"):
+            question = content.replace("NEED_MORE_INFO:", "").strip()
+            return {
+                "needs_more_info": True,
+                "interrupt_question": question,
+                "messages": [AIMessage(content=f"🤔 I need more information to properly classify this ticket.\n\nQuestion: {question}")]
+            }
+        else:
+            return {
+                "needs_more_info": False,
+                "messages": [AIMessage(content="Proceeding with classification...")]
+            }
     
-    analysis_response = llm.invoke([SystemMessage(content=analysis_prompt)])
-    content = analysis_response.content.strip()
-    
-    if content.startswith("NEED_MORE_INFO:"):
-        question = content.replace("NEED_MORE_INFO:", "").strip()
-        return {
-            "needs_more_info": True,
-            "interrupt_question": question,
-            "messages": [AIMessage(content=f"🤔 I need more information to properly classify this ticket.\n\nQuestion: {question}")]
-        }
-    else:
+    except LLMError as e:
+        logger.error(f"LLM error in analyze_node: {e}")
+        error_info = handle_llm_error(e)
         return {
             "needs_more_info": False,
-            "messages": [AIMessage(content="Proceeding with classification...")]
+            "messages": [AIMessage(content=f"⚠️ Error analyzing ticket: {error_info['message']}. Proceeding with best-effort classification.")]
+        }
+    
+    except Exception as e:
+        logger.error(f"Unexpected error in analyze_node: {e}", exc_info=True)
+        return {
+            "needs_more_info": False,
+            "messages": [AIMessage(content="⚠️ An error occurred during analysis. Proceeding with classification...")]
         }
 
 
@@ -113,26 +153,72 @@ Task:
 
 Call the classify_ticket tool with these fields."""
     
-    llm = ChatOpenAI(
-        model=settings.OPENAI_MODEL,
-        api_key=settings.OPENAI_API_KEY,
-        temperature=0.3
-    )
+    try:
+        llm = ChatOpenAI(
+            model=settings.OPENAI_MODEL,
+            api_key=settings.OPENAI_API_KEY,
+            temperature=settings.OPENAI_TEMPERATURE,
+            timeout=settings.OPENAI_TIMEOUT,
+            max_retries=0  # We handle retries ourselves
+        )
+        
+        llm_with_tools = llm.bind_tools([classify_ticket], tool_choice="classify_ticket")
+        
+        response = call_llm_with_retry(llm_with_tools, [SystemMessage(content=prompt)])
+        
+        if response.tool_calls:
+            tool_call = response.tool_calls[0]
+            classification = tool_call["args"]
+        else:
+            # Fallback classification if tool call fails
+            classification = {
+                "summary": full_context[:100],
+                "category": "Bug",
+                "severity": "Medium",
+                "issue_type": "new_issue",
+                "next_action": "Manual review required - classification incomplete"
+            }
+            logger.warning("No tool calls in response, using fallback classification")
+        
+        return {
+            "classification": classification,
+            "messages": [response]
+        }
     
-    llm_with_tools = llm.bind_tools([classify_ticket], tool_choice="classify_ticket")
+    except LLMError as e:
+        logger.error(f"LLM error in classify_node: {e}")
+        error_info = handle_llm_error(e)
+        
+        # Return fallback classification
+        fallback_classification = {
+            "summary": full_context[:100] + "...",
+            "category": "Bug",
+            "severity": "Medium",
+            "issue_type": "new_issue",
+            "next_action": f"Manual review required - {error_info['message']}"
+        }
+        
+        return {
+            "classification": fallback_classification,
+            "messages": [AIMessage(content=f"⚠️ Classification completed with fallback due to error: {error_info['message']}")]
+        }
     
-    response = llm_with_tools.invoke([SystemMessage(content=prompt)])
-    
-    if response.tool_calls:
-        tool_call = response.tool_calls[0]
-        classification = tool_call["args"]
-    else:
-        classification = {}
-    
-    return {
-        "classification": classification,
-        "messages": [response]
-    }
+    except Exception as e:
+        logger.error(f"Unexpected error in classify_node: {e}", exc_info=True)
+        
+        # Return minimal fallback classification
+        fallback_classification = {
+            "summary": "Error during classification",
+            "category": "Bug",
+            "severity": "Medium",
+            "issue_type": "new_issue",
+            "next_action": "Manual review required - unexpected error"
+        }
+        
+        return {
+            "classification": fallback_classification,
+            "messages": [AIMessage(content="⚠️ An error occurred during classification. Please review manually.")]
+        }
 
 
 def should_interrupt(state: AgentState) -> Literal["interrupt", "classify"]:
@@ -165,8 +251,9 @@ def build_graph():
     workflow.add_edge("classify", END)
     
     # Add checkpointer for state persistence
+    # Only interrupt at END when needs_more_info is True (handled by conditional edge)
     memory = MemorySaver()
-    return workflow.compile(checkpointer=memory, interrupt_before=["classify"])
+    return workflow.compile(checkpointer=memory)
 
 
 graph = build_graph()

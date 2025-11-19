@@ -8,19 +8,33 @@ from app.config import get_settings
 from agent.orchestrator import TriageAgent
 from agent.models import TriageRequest
 
-logging.basicConfig(level=logging.INFO)
+settings = get_settings()
+
+# Configure logging based on environment
+logging.basicConfig(
+    level=getattr(logging, settings.LOG_LEVEL),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-settings = get_settings()
-app = FastAPI(title="Ticket Triage Agent")
+app = FastAPI(
+    title="Ticket Triage Agent",
+    debug=settings.DEBUG,
+    version="1.0.0"
+)
 
+# CORS configuration based on environment
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+logger.info(f"Starting application in {settings.ENVIRONMENT} environment")
+logger.info(f"Debug mode: {settings.DEBUG}")
+logger.info(f"Max retries: {settings.MAX_RETRIES}")
 
 agent = TriageAgent()
 

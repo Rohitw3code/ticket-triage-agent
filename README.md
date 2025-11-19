@@ -98,23 +98,75 @@ pip install -r requirements.txt
 
 #### Configure Environment Variables
 
-Create a `.env` file in the root directory:
+The application supports multiple environments (dev, prod, test). Copy the appropriate example file:
+
+**For Development:**
+```bash
+cp .env.dev .env
+```
+
+**For Production:**
+```bash
+cp .env.prod .env
+```
+
+**For Testing:**
+```bash
+cp .env.test .env
+```
+
+Then edit `.env` and add your OpenAI API key:
 
 ```env
+ENVIRONMENT=dev
+DEBUG=true
 OPENAI_API_KEY=your_openai_api_key_here
 OPENAI_MODEL=gpt-4o-mini
+OPENAI_TEMPERATURE=0.3
+OPENAI_TIMEOUT=60
+
+# Retry Configuration
+MAX_RETRIES=2
+RETRY_DELAY=1.0
+RETRY_BACKOFF=2.0
+
 PORT=8000
 MAX_DESCRIPTION_LENGTH=5000
+LOG_LEVEL=DEBUG
 KB_PATH=kb/knowledge_base.json
 ```
 
+**Environment Variables:**
+- `ENVIRONMENT`: Environment name (dev/prod/test)
+- `DEBUG`: Enable debug mode
+- `OPENAI_API_KEY`: Your OpenAI API key (required)
+- `OPENAI_MODEL`: Model to use (default: gpt-4o-mini)
+- `OPENAI_TEMPERATURE`: Temperature for LLM (0-1)
+- `OPENAI_TIMEOUT`: Request timeout in seconds
+- `MAX_RETRIES`: Maximum retry attempts for failed LLM calls
+- `RETRY_DELAY`: Initial delay between retries (seconds)
+- `RETRY_BACKOFF`: Exponential backoff multiplier
+- `LOG_LEVEL`: Logging level (DEBUG/INFO/WARNING/ERROR)
+- `CORS_ORIGINS`: Allowed CORS origins (list)
+
 #### Start the Backend Server
 
+**Development Mode:**
 ```bash
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+ENVIRONMENT=dev python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The API will be available at `http://localhost:8000`
+**Production Mode:**
+```bash
+ENVIRONMENT=prod python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+```
+
+**Testing Mode:**
+```bash
+ENVIRONMENT=test python -m uvicorn app.main:app --host 0.0.0.0 --port 8001
+```
+
+The API will be available at `http://localhost:8000` (or port 8001 for testing)
 
 ### 3. Frontend Setup
 
@@ -382,6 +434,104 @@ ticket-triage-agent/
 - Type hints and Pydantic models
 - Hot reload for development
 - Comprehensive error handling
+
+✅ **Production-Ready Features**:
+- **Retry Logic**: Automatic retry with exponential backoff for LLM calls
+- **Error Handling**: Graceful degradation with fallback classifications
+- **Multi-Environment**: Separate configs for dev/prod/test
+- **Logging**: Environment-specific log levels
+- **Timeouts**: Configurable request timeouts
+- **CORS**: Environment-specific CORS policies
+
+## ⚙️ Multi-Environment Configuration
+
+The application supports three environments with different configurations:
+
+### Development Environment
+- **Debug Mode**: Enabled
+- **Log Level**: DEBUG (verbose logging)
+- **Max Retries**: 2 (faster feedback)
+- **CORS**: Allow all origins
+- **Use Case**: Local development and testing
+
+### Production Environment
+- **Debug Mode**: Disabled
+- **Log Level**: WARNING (only important messages)
+- **Max Retries**: 5 (more resilient)
+- **CORS**: Restricted to specific domains
+- **Use Case**: Live deployment
+
+### Testing Environment
+- **Debug Mode**: Enabled
+- **Log Level**: DEBUG
+- **Max Retries**: 1 (fast test execution)
+- **CORS**: Allow all origins
+- **Use Case**: Automated tests and CI/CD
+
+### Switching Environments
+
+Set the `ENVIRONMENT` variable:
+
+```bash
+# Development
+export ENVIRONMENT=dev
+python -m uvicorn app.main:app --reload
+
+# Production
+export ENVIRONMENT=prod
+python -m uvicorn app.main:app --workers 4
+
+# Testing
+export ENVIRONMENT=test
+pytest tests/
+```
+
+Or use environment-specific .env files:
+```bash
+cp .env.dev .env    # For development
+cp .env.prod .env   # For production
+cp .env.test .env   # For testing
+```
+
+## 🛡️ Error Handling & Retry Logic
+
+The application includes robust error handling for LLM calls:
+
+### Retry Mechanism
+
+- **Exponential Backoff**: Automatically retries failed LLM calls with increasing delays
+- **Configurable Retries**: Set `MAX_RETRIES`, `RETRY_DELAY`, and `RETRY_BACKOFF` in environment
+- **Smart Error Detection**: Different handling for rate limits, timeouts, and connection errors
+
+### Fallback Behavior
+
+When all retries fail, the system:
+1. Logs detailed error information
+2. Returns a fallback classification with "Manual review required"
+3. Continues workflow instead of crashing
+4. Provides user-friendly error messages
+
+### Example Error Scenarios
+
+**Rate Limit Exceeded:**
+```
+⚠️ Rate limit hit, waiting 2.0s before retry 1/3
+⚠️ Rate limit hit, waiting 4.0s before retry 2/3
+✅ Success on retry 3
+```
+
+**Network Timeout:**
+```
+⚠️ Request timed out. Retrying in 1.0s...
+⚠️ Request timed out. Retrying in 2.0s...
+✅ Success on retry 2
+```
+
+**All Retries Failed:**
+```
+❌ LLM call failed after 3 retries
+✅ Returning fallback classification for manual review
+```
 
 ### What Could Be Improved (Given More Time)
 

@@ -102,7 +102,10 @@ class TriageAgent:
             
             # Check if we're interrupted
             current_state = graph.get_state(config)
-            if current_state.next and not current_state.values.get("classification"):
+            
+            # Check if we're actually interrupted (needs_more_info is True and no classification)
+            if (current_state.values.get("needs_more_info") and 
+                not current_state.values.get("classification")):
                 # We're interrupted, waiting for input
                 yield json.dumps({
                     "type": "status", 
