@@ -26,7 +26,7 @@ class TriageAgent:
         if is_new:
             yield json.dumps({
                 "type": "status", 
-                "message": "Starting triage with LangGraph",
+                "message": "🤖 I'm working on it... Please wait a moment while I embed the knowledge base",
                 "thread_id": thread_id
             }) + "\n"
             

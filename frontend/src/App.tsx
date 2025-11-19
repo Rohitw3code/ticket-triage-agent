@@ -166,6 +166,18 @@ function App() {
   const renderEvent = (event: StreamEvent, index: number) => {
     switch (event.type) {
       case 'status':
+        // Show a special card for the initial working message
+        if (event.message?.includes('working on it') || event.message?.includes('embedding')) {
+          return (
+            <div key={index} className="event-card working-card">
+              <div className="event-icon">🤖</div>
+              <div className="event-content">
+                <div className="event-type">Agent Working</div>
+                <div className="event-message">{event.message}</div>
+              </div>
+            </div>
+          )
+        }
         return (
           <div key={index} className="event-card status-card">
             <div className="event-icon">ℹ️</div>
@@ -315,79 +327,141 @@ function App() {
 
   return (
     <div className="app-container">
-      <div className="content-wrapper">
-        <header className="header">
-          <h1>🎫 Ticket Triage Agent</h1>
-          <p className="subtitle">AI-powered ticket classification and routing</p>
-        </header>
-        
-        {!isInterrupted ? (
-          <form onSubmit={handleSubmit} className="query-form">
-            <textarea
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Describe your issue here... (e.g., 'Getting error 500 on mobile checkout')"
-              rows={4}
-              disabled={isLoading}
-            />
-            <div className="button-group">
-              <button type="submit" className="btn-primary" disabled={isLoading || !query.trim()}>
-                {isLoading ? '⏳ Processing...' : '🚀 Submit Query'}
-              </button>
-              <button type="button" className="btn-secondary" onClick={clearStream} disabled={isLoading}>
-                🗑️ Clear
-              </button>
-            </div>
-          </form>
-        ) : (
-          <form onSubmit={handleResume} className="query-form interrupt-form">
-            <div className="interrupt-header">
-              <span className="interrupt-icon">⏸️</span>
-              <div>
-                <h3>Agent Needs More Information</h3>
-                <p className="interrupt-question">{interruptQuestion}</p>
+      <header className="header">
+        <h1>🎫 Ticket Triage Agent</h1>
+        <p className="subtitle">AI-powered ticket classification and routing</p>
+      </header>
+
+      <div className="main-layout">
+        {/* Left Side - Input */}
+        <div className="left-panel">
+          <div className="panel-header">
+            <h2>📝 Your Query</h2>
+          </div>
+          
+          {!isInterrupted ? (
+            <form onSubmit={handleSubmit} className="query-form">
+              <label htmlFor="query-input">Describe your issue:</label>
+              <textarea
+                id="query-input"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="e.g., 'Getting error 500 on mobile checkout'"
+                rows={6}
+                disabled={isLoading}
+              />
+              <div className="button-group">
+                <button type="submit" className="btn-primary" disabled={isLoading || !query.trim()}>
+                  {isLoading ? '⏳ Processing...' : '🚀 Submit Query'}
+                </button>
+                <button type="button" className="btn-secondary" onClick={clearStream} disabled={isLoading}>
+                  🗑️ Clear
+                </button>
               </div>
-            </div>
-            <textarea
-              value={additionalDetails}
-              onChange={(e) => setAdditionalDetails(e.target.value)}
-              placeholder="Provide additional details here..."
-              rows={4}
-              disabled={isLoading}
-              autoFocus
-            />
-            <div className="button-group">
-              <button type="submit" className="btn-primary" disabled={isLoading || !additionalDetails.trim()}>
-                {isLoading ? '⏳ Resuming...' : '▶️ Resume with Details'}
-              </button>
-              <button type="button" className="btn-secondary" onClick={clearStream} disabled={isLoading}>
-                🗑️ Cancel
-              </button>
-            </div>
-          </form>
-        )}
+            </form>
+          ) : (
+            <form onSubmit={handleResume} className="query-form interrupt-form">
+              <div className="interrupt-header">
+                <span className="interrupt-icon">⏸️</span>
+                <div>
+                  <h3>Agent Needs More Information</h3>
+                  <p className="interrupt-question">{interruptQuestion}</p>
+                </div>
+              </div>
+              <label htmlFor="details-input">Your response:</label>
+              <textarea
+                id="details-input"
+                value={additionalDetails}
+                onChange={(e) => setAdditionalDetails(e.target.value)}
+                placeholder="Provide additional details here..."
+                rows={6}
+                disabled={isLoading}
+                autoFocus
+              />
+              <div className="button-group">
+                <button type="submit" className="btn-primary" disabled={isLoading || !additionalDetails.trim()}>
+                  {isLoading ? '⏳ Resuming...' : '▶️ Resume with Details'}
+                </button>
+                <button type="button" className="btn-secondary" onClick={clearStream} disabled={isLoading}>
+                  🗑️ Cancel
+                </button>
+              </div>
+            </form>
+          )}
 
-        {streamEvents.length > 0 && (
-          <div className="results-container">
-            <div className="results-header">
-              <h2>Results</h2>
+          {/* Knowledge Base Display */}
+          <div className="kb-display">
+            <div className="kb-header">
+              <h3>📚 Knowledge Base</h3>
+              <span className="kb-count">15 known issues</span>
+            </div>
+            <div className="kb-list">
+              <KnowledgeBaseItem id="ISSUE-101" title="Checkout error 500 on mobile" category="Bug" />
+              <KnowledgeBaseItem id="ISSUE-102" title="Login fails with incorrect password error" category="Login" />
+              <KnowledgeBaseItem id="ISSUE-103" title="Slow page load times on dashboard" category="Performance" />
+              <KnowledgeBaseItem id="ISSUE-104" title="Unable to update billing information" category="Billing" />
+              <KnowledgeBaseItem id="ISSUE-105" title="App crashes on iOS 17" category="Bug" />
+              <KnowledgeBaseItem id="ISSUE-106" title="How to export data to CSV" category="Question/How-To" />
+              <KnowledgeBaseItem id="ISSUE-107" title="Two-factor authentication setup problems" category="Login" />
+              <KnowledgeBaseItem id="ISSUE-108" title="Invoice not received after payment" category="Billing" />
+              <KnowledgeBaseItem id="ISSUE-109" title="Search results returning irrelevant items" category="Bug" />
+              <KnowledgeBaseItem id="ISSUE-110" title="Cannot upload files larger than 10MB" category="Bug" />
+              <KnowledgeBaseItem id="ISSUE-111" title="Email notifications not being received" category="Bug" />
+              <KnowledgeBaseItem id="ISSUE-112" title="How to integrate with third-party API" category="Question/How-To" />
+              <KnowledgeBaseItem id="ISSUE-113" title="Subscription renewal failed" category="Billing" />
+              <KnowledgeBaseItem id="ISSUE-114" title="Database timeout errors during peak hours" category="Performance" />
+              <KnowledgeBaseItem id="ISSUE-115" title="Password reset link expired" category="Login" />
+            </div>
+          </div>
+        </div>
+
+        {/* Right Side - Stream Output */}
+        <div className="right-panel">
+          <div className="panel-header">
+            <h2>🔄 Live Stream</h2>
+            {streamEvents.length > 0 && (
               <span className="event-count">{streamEvents.length} events</span>
-            </div>
-            <div className="stream-output">
-              {streamEvents.map((event, index) => renderEvent(event, index))}
-              <div ref={streamEndRef} />
-            </div>
+            )}
           </div>
-        )}
 
-        {streamEvents.length === 0 && !isLoading && (
-          <div className="empty-state">
-            <div className="empty-icon">📝</div>
-            <h3>No results yet</h3>
-            <p>Submit a ticket description above to see the AI triage process in action</p>
+          <div className="stream-container">
+            {streamEvents.length === 0 && !isLoading ? (
+              <div className="empty-state">
+                <div className="empty-icon">�</div>
+                <h3>Ready to Process</h3>
+                <p>Submit a ticket description to see the AI triage process in real-time</p>
+              </div>
+            ) : (
+              <div className="stream-output">
+                {streamEvents.map((event, index) => renderEvent(event, index))}
+                <div ref={streamEndRef} />
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
+    </div>
+  )
+}
+
+// Knowledge Base Item Component
+function KnowledgeBaseItem({ id, title, category }: { id: string; title: string; category: string }) {
+  const getCategoryColor = (cat: string) => {
+    switch (cat) {
+      case 'Bug': return 'kb-cat-bug';
+      case 'Login': return 'kb-cat-login';
+      case 'Performance': return 'kb-cat-performance';
+      case 'Billing': return 'kb-cat-billing';
+      case 'Question/How-To': return 'kb-cat-question';
+      default: return 'kb-cat-default';
+    }
+  }
+
+  return (
+    <div className="kb-item">
+      <span className="kb-id">{id}</span>
+      <span className="kb-title">{title}</span>
+      <span className={`kb-category ${getCategoryColor(category)}`}>{category}</span>
     </div>
   )
 }
