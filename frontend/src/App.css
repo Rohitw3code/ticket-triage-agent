@@ -1,42 +1,145 @@
-#root {
-  max-width: 1280px;
+.app-container {
+  max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
+}
+
+h1 {
   text-align: center;
+  margin-bottom: 2rem;
+  color: #646cff;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
+h2 {
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
   color: #888;
+}
+
+.query-form {
+  margin-bottom: 2rem;
+}
+
+.query-form textarea {
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid #646cff;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  color: white;
+  resize: vertical;
+  margin-bottom: 1rem;
+}
+
+.query-form textarea:focus {
+  outline: none;
+  border-color: #535bf2;
+}
+
+.query-form textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button-group {
+  display: flex;
+  gap: 1rem;
+}
+
+.button-group button {
+  flex: 1;
+  padding: 0.8rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background-color: #646cff;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.button-group button:hover:not(:disabled) {
+  background-color: #535bf2;
+  border-color: #646cff;
+}
+
+.button-group button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button-group button:last-child {
+  background-color: #555;
+}
+
+.button-group button:last-child:hover:not(:disabled) {
+  background-color: #666;
+}
+
+.stream-container {
+  margin-top: 2rem;
+}
+
+.stream-output {
+  background-color: #1a1a1a;
+  border: 2px solid #333;
+  border-radius: 8px;
+  padding: 1rem;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: #888;
+  font-style: italic;
+}
+
+.stream-item {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  padding: 0.75rem;
+  background-color: #242424;
+  border-radius: 4px;
+  border-left: 3px solid #646cff;
+}
+
+.stream-index {
+  flex-shrink: 0;
+  color: #646cff;
+  font-weight: bold;
+  font-size: 0.875rem;
+  min-width: 3rem;
+}
+
+.stream-item pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  flex: 1;
+  color: #fff;
+  font-size: 0.875rem;
+  font-family: 'Courier New', monospace;
+}
+
+.stream-output::-webkit-scrollbar {
+  width: 8px;
+}
+
+.stream-output::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.stream-output::-webkit-scrollbar-thumb {
+  background: #646cff;
+  border-radius: 4px;
+}
+
+.stream-output::-webkit-scrollbar-thumb:hover {
+  background: #535bf2;
 }
