@@ -11,11 +11,17 @@ An AI-powered support ticket classification and routing system built with LangGr
 - 🎨 **Modern UI**: Clean, responsive interface with two-column layout
 - 🔄 **Stateful Workflows**: Resume interrupted workflows with additional context
 
-## 📸 Screenshot
+## 📸 Screenshots
 
-![Ticket Triage Agent in Action](https://raw.githubusercontent.com/Rohitw3code/ticket-triage-agent/refs/heads/main/ss.png)
+### Main Interface
+![Ticket Triage Agent - Main Interface](https://raw.githubusercontent.com/Rohitw3code/ticket-triage-agent/refs/heads/main/ss.png)
 
-*Example run showing the two-column interface with knowledge base on the left and real-time streaming triage results on the right.*
+*Two-column interface with query input and knowledge base on the left, real-time streaming triage results on the right.*
+
+### Interrupt Flow
+![Ticket Triage Agent - Human in the Loop](https://raw.githubusercontent.com/Rohitw3code/ticket-triage-agent/refs/heads/main/sss2.png)
+
+*Agent interrupts to ask for clarification when the query is too vague, then resumes classification after receiving additional details.*
 
 ## 🏗️ Architecture
 
@@ -189,6 +195,51 @@ npm run dev
 ```
 
 The UI will be available at `http://localhost:5173`
+
+## 🧪 Running Tests
+
+### Quick Test Run
+
+```bash
+# Run fast tests (excludes slow LLM-dependent tests)
+pytest tests/test_triage.py -v -m "not slow"
+```
+
+Or use the test runner script:
+
+```bash
+chmod +x run_tests.sh
+./run_tests.sh
+```
+
+### All Tests
+
+```bash
+# Run all tests including slow ones (requires valid OPENAI_API_KEY)
+pytest tests/test_triage.py -v
+```
+
+### Test Coverage
+
+The test suite includes:
+- ✅ Health check endpoint validation
+- ✅ Request validation (empty, whitespace, length limits)
+- ✅ Edge cases (special characters, unicode, line breaks)
+- ✅ Resume endpoint validation
+- ✅ Environment configuration verification
+- ⏱️ Full streaming workflow (marked as slow)
+- ⏱️ Classification structure validation (marked as slow)
+
+**Test Types:**
+- **Fast tests**: Unit tests for request/response validation, no LLM calls
+- **Slow tests**: Integration tests that exercise full workflow with LLM
+
+**Current Status:**
+```bash
+$ pytest tests/test_triage.py -v -m "not slow"
+# 15 tests collected / 4 deselected
+# 8 passed ✅
+```
 
 ## 🔌 API Usage
 
@@ -546,9 +597,9 @@ When all retries fail, the system:
 - No conversation history storage
 
 ❌ **Testing**:
-- Limited unit test coverage
-- No integration tests
-- No E2E tests for UI
+- Basic unit and integration tests included
+- No E2E tests for UI workflows
+- Limited coverage for edge cases
 
 ❌ **Features**:
 - No user authentication
@@ -567,6 +618,493 @@ When all retries fail, the system:
 - No retry mechanism in UI
 - No export/share functionality
 - Limited error state handling
+
+## 🐳 Docker Deployment
+
+### Quick Start with Docker Compose
+
+The project includes Docker configurations for both backend and frontend services.
+
+**Start all services:**
+
+```bash
+docker-compose up --build
+```
+
+**Services:**
+- Backend API: `http://localhost:8000`
+- Frontend UI: `http://localhost:5173`
+
+**Stop services:**
+
+```bash
+docker-compose down
+```
+
+### Backend Dockerfile
+
+Multi-stage build for optimized image size:
+
+```dockerfile
+# Builder stage - installs dependencies
+FROM python:3.10-slim as builder
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Final stage - slim runtime
+FROM python:3.10-slim
+WORKDIR /app
+COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
+COPY . .
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+**Build and run backend:**
+
+```bash
+docker build -t ticket-triage-backend .
+docker run -p 8000:8000 -e OPENAI_API_KEY=$OPENAI_API_KEY ticket-triage-backend
+```
+
+### Frontend Dockerfile
+
+Two-stage build with nginx for production:
+
+```dockerfile
+# Build stage
+FROM node:18-alpine as builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# Production stage
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+**Build and run frontend:**
+
+```bash
+cd frontend
+docker build -t ticket-triage-frontend .
+docker run -p 5173:80 ticket-triage-frontend
+```
+
+### Production Deployment Strategies
+
+#### 1. **Container Orchestration**
+
+**Kubernetes:**
+```yaml
+# Example deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ticket-triage-backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ticket-triage-backend
+  template:
+    metadata:
+      labels:
+        app: ticket-triage-backend
+    spec:
+      containers:
+      - name: backend
+        image: ticket-triage-backend:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: ENVIRONMENT
+          value: "prod"
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: openai-secret
+              key: api-key
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+```
+
+**Horizontal Pod Autoscaling:**
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ticket-triage-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ticket-triage-backend
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+```
+
+**AWS ECS/Fargate:**
+```json
+{
+  "family": "ticket-triage",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "containerDefinitions": [
+    {
+      "name": "backend",
+      "image": "your-registry/ticket-triage-backend:latest",
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "ENVIRONMENT",
+          "value": "prod"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "OPENAI_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:region:account:secret:openai-api-key"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/ticket-triage",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "backend"
+        }
+      }
+    }
+  ]
+}
+```
+
+#### 2. **Persistent State Management**
+
+**Redis for Thread State (Recommended):**
+
+```python
+# Add to requirements.txt
+# redis==5.0.0
+
+# Update agent/graph.py
+from langgraph.checkpoint.redis import RedisSaver
+import redis
+
+# Replace MemorySaver with RedisSaver
+redis_client = redis.Redis(
+    host=os.getenv("REDIS_HOST", "localhost"),
+    port=int(os.getenv("REDIS_PORT", 6379)),
+    db=0,
+    decode_responses=True
+)
+memory = RedisSaver(redis_client)
+```
+
+**Docker Compose with Redis:**
+
+```yaml
+version: '3.8'
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    
+  backend:
+    build: .
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+volumes:
+  redis-data:
+```
+
+#### 3. **Scaling Considerations**
+
+**Load Balancing:**
+- Use nginx or AWS ALB for distributing requests
+- Enable sticky sessions for interrupt/resume flows (thread_id routing)
+- Configure health checks on `/health` endpoint
+
+**Caching:**
+```python
+# Add caching for KB embeddings
+from functools import lru_cache
+
+@lru_cache(maxsize=1)
+def get_kb_embeddings():
+    # Cache embeddings to avoid recomputation
+    return compute_embeddings(knowledge_base)
+```
+
+**Rate Limiting:**
+```python
+# Add to app/main.py
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+@app.post("/triage/stream")
+@limiter.limit("10/minute")  # Limit to 10 requests per minute
+async def triage_stream_endpoint(request: Request, ticket: TicketRequest):
+    ...
+```
+
+#### 4. **Monitoring & Observability**
+
+**Health Checks:**
+```python
+# Enhanced health check in app/main.py
+@app.get("/health")
+async def health_check():
+    checks = {
+        "status": "healthy",
+        "environment": settings.ENVIRONMENT,
+        "openai_configured": bool(settings.OPENAI_API_KEY),
+        "kb_loaded": len(load_knowledge_base()) > 0,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    
+    # Check Redis connection if enabled
+    if settings.REDIS_HOST:
+        try:
+            redis_client.ping()
+            checks["redis"] = "connected"
+        except Exception:
+            checks["redis"] = "disconnected"
+            checks["status"] = "degraded"
+    
+    return checks
+```
+
+**Logging:**
+```python
+# Add structured logging
+import logging
+import json
+
+class JSONFormatter(logging.Formatter):
+    def format(self, record):
+        log_obj = {
+            "timestamp": self.formatTime(record),
+            "level": record.levelname,
+            "message": record.getMessage(),
+            "module": record.module,
+            "function": record.funcName
+        }
+        return json.dumps(log_obj)
+
+# Configure logger
+handler = logging.StreamHandler()
+handler.setFormatter(JSONFormatter())
+logger = logging.getLogger("ticket_triage")
+logger.addHandler(handler)
+logger.setLevel(settings.LOG_LEVEL)
+```
+
+**Metrics (Prometheus):**
+```python
+# Add to requirements.txt: prometheus-client
+from prometheus_client import Counter, Histogram, generate_latest
+
+triage_requests = Counter('triage_requests_total', 'Total triage requests')
+triage_duration = Histogram('triage_duration_seconds', 'Triage processing time')
+kb_matches = Counter('kb_matches_total', 'KB matches found', ['issue_type'])
+
+@app.get("/metrics")
+async def metrics():
+    return Response(generate_latest(), media_type="text/plain")
+```
+
+#### 5. **Security Hardening**
+
+```python
+# app/main.py security enhancements
+
+# 1. Add security headers
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
+
+if settings.ENVIRONMENT == "prod":
+    app.add_middleware(HTTPSRedirectMiddleware)
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=settings.ALLOWED_HOSTS.split(",")
+    )
+
+# 2. Input validation
+from pydantic import Field, validator
+
+class TicketRequest(BaseModel):
+    description: str = Field(..., min_length=1, max_length=5000)
+    
+    @validator('description')
+    def sanitize_description(cls, v):
+        # Remove potential XSS
+        import html
+        return html.escape(v.strip())
+
+# 3. API Key validation
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+security = HTTPBearer()
+
+@app.post("/triage/stream")
+async def triage_stream(
+    ticket: TicketRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    # Validate API key
+    if credentials.credentials != settings.API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    ...
+```
+
+#### 6. **CI/CD Pipeline Example**
+
+**GitHub Actions (.github/workflows/deploy.yml):**
+
+```yaml
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run tests
+        run: pytest tests/
+        env:
+          ENVIRONMENT: test
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build backend
+        run: docker build -t ticket-triage-backend:${{ github.sha }} .
+      - name: Build frontend
+        run: |
+          cd frontend
+          docker build -t ticket-triage-frontend:${{ github.sha }} .
+      - name: Push to registry
+        run: |
+          docker push your-registry/ticket-triage-backend:${{ github.sha }}
+          docker push your-registry/ticket-triage-frontend:${{ github.sha }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service \
+            --cluster ticket-triage-cluster \
+            --service ticket-triage-service \
+            --force-new-deployment
+```
+
+#### 7. **Environment Variables for Production**
+
+```bash
+# .env.production
+ENVIRONMENT=prod
+OPENAI_API_KEY=sk-...
+MAX_RETRIES=5
+RETRY_DELAY=2
+PORT=8000
+LOG_LEVEL=WARNING
+
+# State management
+REDIS_HOST=redis.production.internal
+REDIS_PORT=6379
+
+# Security
+ALLOWED_HOSTS=api.yourdomain.com
+API_KEY=your-secret-api-key
+CORS_ORIGINS=https://app.yourdomain.com
+
+# Monitoring
+SENTRY_DSN=https://...@sentry.io/...
+```
+
+### Testing Your Deployment
+
+```bash
+# Run tests before deploying
+pytest tests/ -v
+
+# Test Docker build
+docker-compose up --build
+
+# Test production image
+docker run -e ENVIRONMENT=prod ticket-triage-backend:latest
+
+# Load test (optional)
+# Install: pip install locust
+locust -f tests/load_test.py --host=http://localhost:8000
+```
 
 ### Design Decisions
 
